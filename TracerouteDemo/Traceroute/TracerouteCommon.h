@@ -1,0 +1,100 @@
+//
+//  TracerouteCommon.h
+//  TracerouteDemo
+//
+//  Created by LZephyr on 2018/2/7.
+//  Copyright © 2018年 LZephyr. All rights reserved.
+//
+
+#import <sys/socket.h>
+#import <netinet/in.h>
+#import <netinet/tcp.h>
+#import <arpa/inet.h>
+
+// IP数据报结构
+typedef struct IPHeader {
+    uint8_t versionAndHeaderLength;
+    uint8_t differentiatedServices;
+    uint16_t totalLength;
+    uint16_t identification;
+    uint16_t flagsAndFragmentOffset;
+    uint8_t timeToLive;
+    uint8_t protocol;
+    uint16_t headerChecksum;
+    uint8_t sourceAddress[4];
+    uint8_t destinationAddress[4];
+    // options...
+    // data...
+} IPHeader;
+
+// ICMP数据报结构
+typedef struct ICMPPacket {
+    uint8_t     type;
+    uint8_t     code;
+    uint16_t    checksum;
+    uint16_t    identifier;
+    uint16_t    sequenceNumber;
+    // data...
+} ICMPPacket;
+
+// ICMPv4报文类型
+typedef enum ICMPv4Type {
+    kICMPv4TypeEchoReply = 0, // 回显应答
+    kICMPv4TypeEchoRequest = 8, // 回显请求
+    kICMPv4TypeTimeOut = 11, // 超时
+}ICMPv4Type;
+
+// ICMPv6报文类型
+typedef enum ICMPv6Type {
+    kICMPv6TypeEchoReply = 129, // 回显应答
+    kICMPv6TypeEchoRequest = 128, // 回显请求
+    kICMPv6TypeTimeOut = 3, // 超时
+}ICMPv6Type;
+
+#pragma mark - TracerouteCommon
+
+@interface TracerouteCommon : NSObject
+
+/**
+ 计算ICMP数据包的校验码
+
+ @param buffer    数据包的内容
+ @param bufferLen 数据包长度
+ @return 校验码
+ */
++ (uint16_t)makeChecksumFor:(const void *)buffer len:(size_t)bufferLen;
+
+/**
+ 创建Sockaddr结构体
+
+ @param host   主机地址
+ @param port   端口号
+ @param isIPv6 是否为IPv6模式
+ @return 创建好的结构体
+ */
++ (struct sockaddr *)makeSockaddrWithHost:(const void *)host port:(int)port isIPv6:(BOOL)isIPv6;
+
+/**
+ 创建一个ICMP数据包
+
+ @param identifier ID
+ @param seq        序号
+ @param payload    ICMP包承载的数据
+ @param isICMPv6   是否为ICMPv6
+ @return 返回创建的数据包，NSData类型
+ */
++ (NSData *)makeICMPPacketWithID:(uint16_t)identifier
+                        sequence:(uint16_t)seq
+                         payload:(NSData *)payload
+                        isICMPv6:(BOOL)isICMPv6;
+
+/**
+ 解析ICMP数据，返回一个ICMP数据包
+
+ @param packet 数据
+ @param len    数据长度
+ @return ICMP数据包格式
+ */
++ (ICMPPacket *)unpackICMPPacket:(char *)packet len:(int)len;
+
+@end
