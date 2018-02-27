@@ -10,8 +10,7 @@
 
 @interface TracerouteRecord : NSObject
 
-@property (nonatomic) BOOL success;
-@property (nonatomic) NSString *ip;
+@property (nonatomic) NSString *ip; // 当前这一跳的IP
 @property (nonatomic) NSArray<NSNumber *> *recvDurations; // 每次的往返耗时
 @property (nonatomic) NSInteger total; // 次数
 @property (nonatomic) NSInteger ttl; // 当前的TTL

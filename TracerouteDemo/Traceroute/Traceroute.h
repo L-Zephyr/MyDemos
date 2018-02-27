@@ -15,14 +15,13 @@ typedef void (^TracerouteFinishCallback)(NSArray<TracerouteRecord *> *results, B
 @interface Traceroute : NSObject
 
 /**
- 开始对指定的IP进行traceroute诊断
- @param host         待诊断的IP地址
- @param ipv6         是否为IPv6地址
+ 开始对指定的IP进行traceroute诊断，在当前线程同步执行
+ 
+ @param host         诊断的域名或IP地址
  @param stepCallback 每一跳的结果回调
  @param finish       Traceroute结束的回调
  */
 + (instancetype)startTracerouteWithHost:(NSString *)host
-                                 isIPv6:(BOOL)ipv6
                            stepCallback:(TracerouteStepCallback)stepCallback
                                  finish:(TracerouteFinishCallback)finish;
 

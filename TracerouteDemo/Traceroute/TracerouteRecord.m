@@ -20,11 +20,11 @@
         [record appendFormat:@"%@\t", self.ip];
     }
     
-    for (int i = 0; i < self.total; ++i) {
-        if (i < self.recvDurations.count) {
-            [record appendFormat:@"%.2f ms\t", [self.recvDurations[i] floatValue] * 1000];
-        } else {
+    for (id number in _recvDurations) {
+        if ([number isKindOfClass:[NSNull class]]) {
             [record appendFormat:@"*\t"];
+        } else {
+            [record appendFormat:@"%.2f ms\t", [(NSNumber *)number floatValue] * 1000];
         }
     }
     

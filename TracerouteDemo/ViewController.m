@@ -35,7 +35,6 @@
     
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
         [Traceroute startTracerouteWithHost:target
-                                     isIPv6:NO
                                stepCallback:^(TracerouteRecord *record) {
                                    NSString *text = [NSString stringWithFormat:@"%@%@\n", _resultView.text, record];
                                    dispatch_async(dispatch_get_main_queue(), ^{

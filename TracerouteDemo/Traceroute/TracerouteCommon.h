@@ -11,22 +11,6 @@
 #import <netinet/tcp.h>
 #import <arpa/inet.h>
 
-// IP数据报结构
-typedef struct IPHeader {
-    uint8_t versionAndHeaderLength;
-    uint8_t differentiatedServices;
-    uint16_t totalLength;
-    uint16_t identification;
-    uint16_t flagsAndFragmentOffset;
-    uint8_t timeToLive;
-    uint8_t protocol;
-    uint16_t headerChecksum;
-    uint8_t sourceAddress[4];
-    uint8_t destinationAddress[4];
-    // options...
-    // data...
-} IPHeader;
-
 // ICMP数据报结构
 typedef struct ICMPPacket {
     uint8_t     type;
@@ -56,6 +40,14 @@ typedef enum ICMPv6Type {
 @interface TracerouteCommon : NSObject
 
 /**
+ 将域名解析成IP地址
+
+ @param hostname 域名
+ @return IP地址列表
+ */
++ (NSArray<NSString *> *)resolveHost:(NSString *)hostname;
+
+/**
  计算ICMP数据包的校验码
 
  @param buffer    数据包的内容
@@ -67,12 +59,12 @@ typedef enum ICMPv6Type {
 /**
  创建Sockaddr结构体
 
- @param host   主机地址
- @param port   端口号
- @param isIPv6 是否为IPv6模式
+ @param address   主机地址
+ @param port      端口号
+ @param isIPv6    是否为IPv6模式
  @return 创建好的结构体
  */
-+ (struct sockaddr *)makeSockaddrWithHost:(const void *)host port:(int)port isIPv6:(BOOL)isIPv6;
++ (struct sockaddr *)makeSockaddrWithAddress:(NSString *)address port:(int)port isIPv6:(BOOL)isIPv6;
 
 /**
  创建一个ICMP数据包
@@ -89,12 +81,23 @@ typedef enum ICMPv6Type {
                         isICMPv6:(BOOL)isICMPv6;
 
 /**
- 解析ICMP数据，返回一个ICMP数据包
+ 判断是否为ICMP应答回显数据包
 
- @param packet 数据
- @param len    数据长度
- @return ICMP数据包格式
+ @param packet IP数据包
+ @param len    数据包长度
+ @param isIPv6 是否为IPv6
+ @return 是否收到回显应答
  */
-+ (ICMPPacket *)unpackICMPPacket:(char *)packet len:(int)len;
++ (BOOL)isEchoReplyPacket:(char *)packet len:(int)len isIPv6:(BOOL)isIPv6;
+
+/**
+ 判断数据包是否为ICMP超时数据包
+
+ @param packet  IP数据包
+ @param len     长度
+ @param isIPv6  是否为IPv6
+ @return 是否为超时
+ */
++ (BOOL)isTimeoutPacket:(char *)packet len:(int)len isIPv6:(BOOL)isIPv6;
 
 @end
