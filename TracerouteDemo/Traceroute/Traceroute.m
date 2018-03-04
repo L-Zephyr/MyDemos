@@ -10,7 +10,6 @@
 #import "TracerouteCommon.h"
 
 #define kTraceStepMaxAttempts 3 // 每一跳尝试的次数
-#define kTraceRouteFailOvertime 10 // 连续失败指定次数直接结束
 #define kTraceRoutePort 20000 // traceroute所用的端口号
 #define kTraceMaxJump 30 // 最多尝试30跳
 
@@ -20,7 +19,6 @@
 @property (nonatomic) NSString *hostname;
 @property (nonatomic) NSInteger maxTtl; // 最大跳数
 @property (nonatomic) NSMutableArray<TracerouteRecord *>* results;
-@property (nonatomic) NSInteger failOvertime; // 连续失败的次数
 
 @property (nonatomic) TracerouteStepCallback stepCallback;
 @property (nonatomic) TracerouteFinishCallback finishCallback;
@@ -32,8 +30,24 @@
 + (instancetype)startTracerouteWithHost:(NSString *)host
                            stepCallback:(TracerouteStepCallback)stepCallback
                                  finish:(TracerouteFinishCallback)finish {
+    return [Traceroute startTracerouteWithHost:host
+                                         queue:nil
+                                  stepCallback:stepCallback
+                                        finish:finish];
+}
+
++ (instancetype)startTracerouteWithHost:(NSString *)host
+                                  queue:(dispatch_queue_t)queue
+                           stepCallback:(TracerouteStepCallback)stepCallback
+                                 finish:(TracerouteFinishCallback)finish {
     Traceroute *traceroute = [[Traceroute alloc] initWithHost:host maxTtl:kTraceMaxJump stepCallback:stepCallback finish:finish];
-    [traceroute run];
+    if (queue != nil) {
+        dispatch_async(queue, ^{
+            [traceroute run];
+        });
+    } else {
+        [traceroute run];
+    }
     return traceroute;
 }
 
@@ -47,7 +61,6 @@
         _stepCallback = stepCallback;
         _finishCallback = finish;
         _results = [[NSMutableArray alloc] init];
-        _failOvertime = 0;
     }
     return self;
 }
@@ -61,8 +74,7 @@
         return;
     }
     _ipAddress = [addresses firstObject];
-//    _ipAddress = @"2400:da00::dbf:0:100"; // test
-    // 作为Demo，域名有多个地址时只取第一个
+    // 域名有多个地址时只取第一个
     if (addresses.count > 0) {
         NSLog(@"%@ has multiple addresses, using %@", _hostname, _ipAddress);
     }
@@ -96,12 +108,12 @@
     int ttl = 1;
     BOOL succeed = NO;
     do {
-        if (_failOvertime == kTraceRouteFailOvertime) { // 连续失败最大次数
-            break;
-        }
-        
         // 设置数据包TTL，依次递增
-        if (setsockopt(send_sock, isIPv6 ? IPPROTO_IPV6 : IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
+        if (setsockopt(send_sock,
+                       isIPv6 ? IPPROTO_IPV6 : IPPROTO_IP,
+                       isIPv6 ? IPV6_UNICAST_HOPS : IP_TTL,
+                       &ttl,
+                       sizeof(ttl)) < 0) {
             NSLog(@"setsockopt失败");
         }
         succeed = [self sendAndRecv:send_sock addr:remoteAddr ttl:ttl];
@@ -129,19 +141,17 @@
     char buff[200];
     BOOL finished = NO;
     BOOL isIPv6 = [_ipAddress rangeOfString:@":"].location != NSNotFound;
+    socklen_t addrLen = isIPv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
     
     // 构建icmp报文
     uint16_t identifier = (uint16_t)ttl;
-    NSData *payload = [[NSString stringWithFormat:@"traceroute icmp packet %d", ttl] dataUsingEncoding:NSASCIIStringEncoding];
     NSData *packetData = [TracerouteCommon makeICMPPacketWithID:identifier
                                                        sequence:ttl
-                                                        payload:payload
                                                        isICMPv6:isIPv6];
     
     // 记录结果
     TracerouteRecord *record = [[TracerouteRecord alloc] init];
     record.ttl = ttl;
-//    record.total = kTraceStepMaxAttempts;
     
     BOOL receiveReply = NO;
     NSMutableArray *durations = [[NSMutableArray alloc] init];
@@ -150,15 +160,21 @@
     for (int try = 0; try < kTraceStepMaxAttempts; try ++) {
         NSDate* startTime = [NSDate date];
         // 发送icmp报文
-        ssize_t sent = sendto(sendSock, packetData.bytes, packetData.length, 0, (struct sockaddr*)addr, sizeof(struct sockaddr));
+        ssize_t sent = sendto(sendSock,
+                              packetData.bytes,
+                              packetData.length,
+                              0,
+                              addr,
+                              addrLen);
         if (sent < 0) {
+            NSLog(@"发送失败: %s", strerror(errno));
+            [durations addObject:[NSNull null]];
             continue;
         }
         
         // 接收icmp数据
         struct sockaddr remoteAddr;
-        socklen_t len = sizeof(remoteAddr);
-        ssize_t resultLen = recvfrom(sendSock, buff, sizeof(buff), 0, (struct sockaddr*)&remoteAddr, &len);
+        ssize_t resultLen = recvfrom(sendSock, buff, sizeof(buff), 0, (struct sockaddr*)&remoteAddr, &addrLen);
         if (resultLen < 0) {
             // fail
             [durations addObject:[NSNull null]];
@@ -178,17 +194,16 @@
                 inet_ntop(AF_INET6, &((struct sockaddr_in6 *)&remoteAddr)->sin6_addr, ip, INET6_ADDRSTRLEN);
                 remoteAddress = [NSString stringWithUTF8String:ip];
             }
-            if (remoteAddress) {
-                record.ip = remoteAddress;
-            }
             
             // 结果判断
             if ([TracerouteCommon isTimeoutPacket:buff len:(int)resultLen isIPv6:isIPv6]) {
                 // 到达中间节点
                 [durations addObject:@(duration)];
+                record.ip = remoteAddress;
             } else if ([TracerouteCommon isEchoReplyPacket:buff len:(int)resultLen isIPv6:isIPv6] && [remoteAddress isEqualToString:_ipAddress]) {
                 // 到达目标服务器
                 [durations addObject:@(duration)];
+                record.ip = remoteAddress;
                 finished = YES;
             } else {
                 // 失败
@@ -197,13 +212,6 @@
         }
     }
     record.recvDurations = [durations copy];
-    
-    if (!receiveReply) {
-        ++_failOvertime;
-    } else {
-        _failOvertime = 0;
-    }
-    
     [_results addObject:record];
     
     // 回调每一步的结果

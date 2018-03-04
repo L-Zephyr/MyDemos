@@ -33,27 +33,24 @@
     _resultView.text = @"";
     NSString *target = _ipAddressField.text;
     
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-        [Traceroute startTracerouteWithHost:target
-                               stepCallback:^(TracerouteRecord *record) {
+    [Traceroute startTracerouteWithHost:target
+                                  queue:dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0)
+                           stepCallback:^(TracerouteRecord *record) {
+                               dispatch_async(dispatch_get_main_queue(), ^{
                                    NSString *text = [NSString stringWithFormat:@"%@%@\n", _resultView.text, record];
-                                   dispatch_async(dispatch_get_main_queue(), ^{
-                                       _resultView.text = text;
-                                   });
-                                   
-                               } finish:^(NSArray<TracerouteRecord *> *results, BOOL succeed) {
+                                   _resultView.text = text;
+                               });
+                           } finish:^(NSArray<TracerouteRecord *> *results, BOOL succeed) {
+                               dispatch_async(dispatch_get_main_queue(), ^{
                                    NSMutableString *text = [_resultView.text mutableCopy];
                                    if (succeed) {
                                        [text appendString:@"> Traceroute成功 <"];
                                    } else {
                                        [text appendString:@"> Traceroute失败 <"];
                                    }
-                                   dispatch_async(dispatch_get_main_queue(), ^{
-                                       _resultView.text = [text copy];
-                                   });
-                                   
-                               }];
-    });
+                                   _resultView.text = [text copy];
+                               });
+                           }];
 }
 
 @end

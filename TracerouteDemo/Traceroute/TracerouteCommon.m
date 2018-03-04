@@ -15,19 +15,18 @@ typedef struct IPv4Header {
     uint8_t versionAndHeaderLength; // 版本和首部长度
     uint8_t serviceType; // 服务类型
     uint16_t totalLength; // 数据包长度
-    uint16_t identification;
+    uint16_t identifier;
     uint16_t flagsAndFragmentOffset;
     uint8_t timeToLive;
     uint8_t protocol; // 协议类型，1表示ICMP: https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-    uint16_t headerChecksum;
+    uint16_t checksum;
     uint8_t sourceAddress[4];
-    uint8_t destinationAddress[4];
+    uint8_t destAddress[4];
     // options...
     // data...
 } IPv4Header;
 
 // IPv6数据包结构
-// https://tools.ietf.org/html/rfc2463
 typedef struct IPv6Header {
     uint32_t padding; // 版本 + 通信量等级 + 流标签
     uint16_t payloadLength; // 有效载荷大小
@@ -43,13 +42,13 @@ __Check_Compile_Time(sizeof(IPv4Header) == 20);
 __Check_Compile_Time(offsetof(IPv4Header, versionAndHeaderLength) == 0);
 __Check_Compile_Time(offsetof(IPv4Header, serviceType) == 1);
 __Check_Compile_Time(offsetof(IPv4Header, totalLength) == 2);
-__Check_Compile_Time(offsetof(IPv4Header, identification) == 4);
+__Check_Compile_Time(offsetof(IPv4Header, identifier) == 4);
 __Check_Compile_Time(offsetof(IPv4Header, flagsAndFragmentOffset) == 6);
 __Check_Compile_Time(offsetof(IPv4Header, timeToLive) == 8);
 __Check_Compile_Time(offsetof(IPv4Header, protocol) == 9);
-__Check_Compile_Time(offsetof(IPv4Header, headerChecksum) == 10);
+__Check_Compile_Time(offsetof(IPv4Header, checksum) == 10);
 __Check_Compile_Time(offsetof(IPv4Header, sourceAddress) == 12);
-__Check_Compile_Time(offsetof(IPv4Header, destinationAddress) == 16);
+__Check_Compile_Time(offsetof(IPv4Header, destAddress) == 16);
 __Check_Compile_Time(sizeof(ICMPPacket) == 8);
 __Check_Compile_Time(offsetof(ICMPPacket, type) == 0);
 __Check_Compile_Time(offsetof(ICMPPacket, code) == 1);
@@ -113,47 +112,50 @@ __Check_Compile_Time(offsetof(IPv6Header, destAddress) == 24);
 + (struct sockaddr *)makeSockaddrWithAddress:(NSString *)address port:(int)port isIPv6:(BOOL)isIPv6 {
     NSData *addrData = nil;
     if (isIPv6) {
-        struct sockaddr_in6 nativeAddr6;
-        memset(&nativeAddr6, 0, sizeof(nativeAddr6));
-        nativeAddr6.sin6_family = AF_INET6;
-        nativeAddr6.sin6_len = sizeof(nativeAddr6);
-        nativeAddr6.sin6_port = htons(port);
-        if (inet_pton(AF_INET6, address.UTF8String, &nativeAddr6.sin6_addr) < 0) {
+        struct sockaddr_in6 addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin6_family = AF_INET6;
+        addr.sin6_len = sizeof(addr);
+        addr.sin6_port = htons(port);
+        if (inet_pton(AF_INET6, address.UTF8String, &addr.sin6_addr) < 0) {
             NSLog(@"创建sockaddr结构体失败");
             return NULL;
         }
-        addrData = [NSData dataWithBytes:&nativeAddr6 length:sizeof(nativeAddr6)];
+        addrData = [NSData dataWithBytes:&addr length:sizeof(addr)];
     } else {
-        struct sockaddr_in nativeAddr4;
-        memset(&nativeAddr4, 0, sizeof(nativeAddr4));
-        nativeAddr4.sin_len = sizeof(nativeAddr4);
-        nativeAddr4.sin_family = AF_INET;
-        nativeAddr4.sin_port = htons(port);
-        if (inet_pton(AF_INET, address.UTF8String, &nativeAddr4.sin_addr.s_addr) < 0) {
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_len = sizeof(addr);
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        if (inet_pton(AF_INET, address.UTF8String, &addr.sin_addr.s_addr) < 0) {
             NSLog(@"创建sockaddr结构体失败");
             return NULL;
         }
-        addrData = [NSData dataWithBytes:&nativeAddr4 length:sizeof(nativeAddr4)];
+        addrData = [NSData dataWithBytes:&addr length:sizeof(addr)];
     }
     return (struct sockaddr *)[addrData bytes];
 }
 
 + (NSData *)makeICMPPacketWithID:(uint16_t)identifier
                         sequence:(uint16_t)seq
-                         payload:(NSData *)payload
                         isICMPv6:(BOOL)isICMPv6 {
-    NSMutableData *         packet;
-    ICMPPacket *            icmpPtr;
+    NSMutableData *packet;
+    ICMPPacket *icmpPtr;
     
-    packet = [NSMutableData dataWithLength:sizeof(*icmpPtr) + payload.length];
-    assert(packet != nil);
+    packet = [NSMutableData dataWithLength:sizeof(*icmpPtr)];
     
     icmpPtr = packet.mutableBytes;
     icmpPtr->type = isICMPv6 ? kICMPv6TypeEchoRequest : kICMPv4TypeEchoRequest;
     icmpPtr->code = 0;
-    icmpPtr->identifier     = OSSwapHostToBigInt16(identifier);
-    icmpPtr->sequenceNumber = OSSwapHostToBigInt16(seq);
-    memcpy(&icmpPtr[1], [payload bytes], [payload length]);
+    
+    if (isICMPv6) {
+        icmpPtr->identifier     = 0;
+        icmpPtr->sequenceNumber = 0;
+    } else {
+        icmpPtr->identifier     = OSSwapHostToBigInt16(identifier);
+        icmpPtr->sequenceNumber = OSSwapHostToBigInt16(seq);
+    }
     
     // ICMPv6的校验和由内核计算
     if (!isICMPv6) {
@@ -251,20 +253,21 @@ __Check_Compile_Time(offsetof(IPv6Header, destAddress) == 24);
 // 从IPv6数据包中解析出ICMP
 // https://tools.ietf.org/html/rfc2463
 + (ICMPPacket *)unpackICMPv6Packet:(char *)packet len:(int)len {
-    if (len < (sizeof(IPv6Header) + sizeof(ICMPPacket))) {
-        return NULL;
-    }
-    const struct IPv6Header *ipPtr = (const IPv6Header *)packet;
-    if (ipPtr->nextHeader != 58) { // ICMPv6
-        return NULL;
-    }
-    
-    size_t ipHeaderLength = sizeof(uint8_t) * 40; // IPv6头部长度为固定的40字节
-    if (len < ipHeaderLength + sizeof(ICMPPacket)) {
-        return NULL;
-    }
-    
-    return (ICMPPacket *)((char *)packet + ipHeaderLength);
+//    if (len < (sizeof(IPv6Header) + sizeof(ICMPPacket))) {
+//        return NULL;
+//    }
+//    const struct IPv6Header *ipPtr = (const IPv6Header *)packet;
+//    if (ipPtr->nextHeader != 58) { // ICMPv6
+//        return NULL;
+//    }
+//
+//    size_t ipHeaderLength = sizeof(uint8_t) * 40; // IPv6头部长度为固定的40字节
+//    if (len < ipHeaderLength + sizeof(ICMPPacket)) {
+//        return NULL;
+//    }
+//
+//    return (ICMPPacket *)((char *)packet + ipHeaderLength);
+    return (ICMPPacket *)packet;
 }
 
 + (NSString *)formatIPv6Address:(struct in6_addr)ipv6Addr {

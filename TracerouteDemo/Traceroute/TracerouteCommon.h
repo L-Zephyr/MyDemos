@@ -71,13 +71,11 @@ typedef enum ICMPv6Type {
 
  @param identifier ID
  @param seq        序号
- @param payload    ICMP包承载的数据
  @param isICMPv6   是否为ICMPv6
  @return 返回创建的数据包，NSData类型
  */
 + (NSData *)makeICMPPacketWithID:(uint16_t)identifier
                         sequence:(uint16_t)seq
-                         payload:(NSData *)payload
                         isICMPv6:(BOOL)isICMPv6;
 
 /**
