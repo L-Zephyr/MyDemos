@@ -1,0 +1,55 @@
+{# Decode一个非Bool类型的属性 #}
+{% macro decodeVariable var %}
+    {% if var|annotated:"default" %} {# 有默认值 #}
+        {{var.name}} = try container.decodeIfPresent({{var.typeName}}.self, forKey: .{{var.name}}) ?? {{var.annotations.default}}
+    {% else %} {# 无默认值 #}
+        {{var.name}} = try container.decode({{var.typeName}}.self, forKey: .{{var.name}})
+    {% endif %}
+{% endmacro %}
+
+{# Decode一个Bool类型的属性 #}
+{% macro decodeBoolVariable var %}
+        if let r = try? container.decode(Bool.self, forKey: .{{var.name}}) {
+            {{var.name}} = r
+        } else if let r = try? container.decode(Int.self, forKey: .{{var.name}}) {
+            {{var.name}} = (r == 0 ? false : true)
+        }
+        {% if var|annotated:"default" %}
+        else {
+            {{var.name}} = {{var.annotations.default}}
+        }
+        {% else %}
+        else {
+            let context = DecodingError.Context(codingPath: [CodingKeys.{{var.name}}], debugDescription: "Expected to decode Bool")
+            throw DecodingError.typeMismatch(Bool.self, context) 
+        }
+        {% endif %} 
+{% endmacro %}
+
+{# 处理所有实现了AutoCodable协议的类型 #}
+{% for type in types.implementing.AutoCodable %}
+// MARK: - {{type.name}} Codable
+extension {{type.name}} {
+    enum CodingKeys: String, CodingKey {
+    {% for var in type.storedVariables %}
+        {% if var|!annotated:"skip" %}
+        case {{var.name}} {% if var|annotated:"key" %}= "{{var.annotations.key}}"{% endif %}
+        {% endif %}
+    {% endfor %}
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        {% for var in type.storedVariables %}
+            {% if var|!annotated:"skip" %}
+                {% if var.typeName.name == "Bool" %}
+                    {% call decodeBoolVariable var %}
+                {% else %}
+                    {% call decodeVariable var %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    }
+}
+
+{% endfor %}
