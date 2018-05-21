@@ -26,9 +26,60 @@
         {% endif %} 
 {% endmacro %}
 
-{# 处理所有实现了AutoCodable协议的类型 #}
-{% for type in types.implementing.AutoCodable %}
-// MARK: - {{type.name}} Codable
+{# 处理Enum类型的Codable #}
+{% macro codableForEnum type %}
+{% if type.rawType == nil %}
+extension {{type.name}} {
+    enum CodingKeys: String, CodingKey {
+        case key
+        {% for case in type.cases %}
+            {% map case.associatedValues into counters %}{{maploop.counter}}{% endmap %} 
+            {% for count in counters %}
+        case {{case.name}}_{{count}}
+            {% endfor %}
+        {% endfor %}
+    }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        {% for case in type.cases %}
+            {% map case.associatedValues into valnames %}let val{{maploop.counter}}{% endmap %} 
+            case .{{case.name}}{% if case.hasAssociatedValue %}({{valnames|join:","}}){% else %}(){% endif %}:
+                try container.encode("{{case.name}}", forKey: .key)
+                {% map case.associatedValues into counters %}{{maploop.counter}}{% endmap %} 
+                {% for count in counters %}
+                try container.encode(val{{count}}, forKey: .{{case.name}}_{{count}})
+                {% endfor %}
+        {% endfor %}
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let key = try container.decode(String.self, forKey: .key)
+        
+        switch key {
+        {% map type.cases into caseTemplates %}
+            {% if maploop.last %}
+        default:
+            {% else %}
+        case "{{maploop.item.name}}":
+            {% endif %}
+            {% set caseName %}{{maploop.item.name}}{% endset %} 
+            {% map maploop.item.associatedValues into values %}
+                try container.decode({{maploop.item.typeName}}.self, forKey: .{{caseName}}_{{maploop.counter}})
+            {% endmap %} 
+            self = .{{maploop.item.name}}({{values|join:","}})
+        {% endmap %} 
+        {{ caseTemplates|join }}
+        }
+    }
+}
+{% endif %}
+{% endmacro %}
+
+{# 处理struct类型 #}
+{% macro codableForOthers type %}
 extension {{type.name}} {
     enum CodingKeys: String, CodingKey {
     {% for var in type.storedVariables %}
@@ -37,11 +88,10 @@ extension {{type.name}} {
         {% endif %}
     {% endfor %}
     }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         {% for var in type.storedVariables %}
-            {% if var|!annotated:"skip" %}
+            {% if var|!annotated:"skip" and not var.isComputed %}
                 {% if var.typeName.name == "Bool" %}
                     {% call decodeBoolVariable var %}
                 {% else %}
@@ -51,5 +101,17 @@ extension {{type.name}} {
         {% endfor %}
     }
 }
+{% endmacro %}
 
+{# 处理所有实现了AutoCodable协议的类型 #}
+{% for type in types.implementing.AutoCodable %}
+{% if type.kind != "protocol" %}
+// MARK: - {{type.name}} Codable
+    {% if type.kind == "enum" %}
+        {% call codableForEnum type%}
+    {% else %}
+        {% call codableForOthers type%}
+    {% endif %}
+
+{% endif %}
 {% endfor %}

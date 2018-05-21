@@ -29,3 +29,9 @@ struct Person: AutoCodable {
 struct School: AutoCodable {
     var name: String
 }
+
+enum ConcreteType: AutoCodable {
+    case option1(String)
+    case option2(School)
+    case option3(String, School, Int)
+}
