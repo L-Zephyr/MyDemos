@@ -78,17 +78,9 @@ extension {{type.name}} {
 {% endif %}
 {% endmacro %}
 
-{# 处理struct类型 #}
-{% macro codableForOthers type %}
-extension {{type.name}} {
-    enum CodingKeys: String, CodingKey {
-    {% for var in type.storedVariables %}
-        {% if var|!annotated:"skip" %}
-        case {{var.name}} {% if var|annotated:"key" %}= "{{var.annotations.key}}"{% endif %}
-        {% endif %}
-    {% endfor %}
-    }
-    init(from decoder: Decoder) throws {
+{# 生成codable的初始化方法 #}
+{% macro codableInit type %}
+    {% if type.kind == "class" %}required {% endif %}init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         {% for var in type.storedVariables %}
             {% if var|!annotated:"skip" and not var.isComputed %}
@@ -100,6 +92,26 @@ extension {{type.name}} {
             {% endif %}
         {% endfor %}
     }
+{% endmacro%}
+
+{# 处理struct类型 #}
+{% macro codableForOthers type %}
+extension {{type.name}} {
+    enum CodingKeys: String, CodingKey {
+    {% for var in type.storedVariables %}
+        {% if var|!annotated:"skip" %}
+        case {{var.name}} {% if var|annotated:"key" %}= "{{var.annotations.key}}"{% endif %}
+        {% endif %}
+    {% endfor %}
+    }
+
+    {% if type.kind == "class" %}
+    // sourcery:inline:{{ type.name }}.AutoCodable
+        {% call codableInit type %}
+    // sourcery:end
+    {% else %}
+        {% call codableInit type %}
+    {% endif %}
 }
 {% endmacro %}
 

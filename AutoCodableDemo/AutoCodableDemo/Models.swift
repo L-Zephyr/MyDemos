@@ -35,3 +35,16 @@ enum ConcreteType: AutoCodable {
     case option2(School)
     case option3(String, School, Int)
 }
+
+class ClassModel: AutoCodable {
+    var data1: String
+    var data2: ConcreteType
+    
+    // sourcery:inline:ClassModel.AutoCodable
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        data1 = try container.decode(String.self, forKey: .data1)
+        data2 = try container.decode(ConcreteType.self, forKey: .data2)
+    }
+    // sourcery:end
+}

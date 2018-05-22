@@ -7,6 +7,16 @@
 
 
 
+
+// MARK: - ClassModel Codable
+extension ClassModel {
+    enum CodingKeys: String, CodingKey {
+        case data1 
+        case data2 
+    }
+
+}
+
 // MARK: - ConcreteType Codable
 extension ConcreteType {
     enum CodingKeys: String, CodingKey {
@@ -66,6 +76,7 @@ extension Person {
         case married 
         case array 
     }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         myName = try container.decode(String.self, forKey: .myName)
@@ -95,6 +106,7 @@ extension School {
     enum CodingKeys: String, CodingKey {
         case name 
     }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
