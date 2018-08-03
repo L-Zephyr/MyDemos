@@ -65,6 +65,5 @@ class MessageViewController: UIViewController, View {
                 self?.viewModel?.request()
             })
             .disposed(by: self.disposeBag)
-        
     }
 }

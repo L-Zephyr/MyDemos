@@ -33,7 +33,7 @@ public class Store<ConcreteState>: StoreType where ConcreteState: StateType {
     
     public let disposeBag = DisposeBag()
     
-    /// 以一个初始化
+    /// 接受一个State来初始化
     required public init(state: State) {
         self.state = state
         self._state = BehaviorSubject(value: state)

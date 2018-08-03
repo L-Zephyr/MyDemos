@@ -44,6 +44,12 @@ class MessageViewModel: Store<MessageState> {
         super.init(state: state)
     }
     
+    override internal func performStateUpdate(_ updater: (inout MessageState) -> Void) {
+        super.performStateUpdate(updater)
+    }
+    
+    // MARK: - Public Method (Actions)
+    
     func request() {
         /// 通过performStateUpdate直接更新状态
         performStateUpdate { $0.loadingState = .loading }

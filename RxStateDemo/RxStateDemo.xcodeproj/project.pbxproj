@@ -125,14 +125,14 @@
 			name = Pods;
 			sourceTree = "<group>";
 		};
-		BB8B0E4E20B695B400391A76 /* Traditional */ = {
+		BB8B0E4E20B695B400391A76 /* Traditional（常规实现） */ = {
 			isa = PBXGroup;
 			children = (
 				BB8B0E4F20B695CE00391A76 /* TraditionalMessageViewController.swift */,
 				BB8B0E5020B695CE00391A76 /* TraditionalMessageViewController.xib */,
 				BB8B0E5420B6991400391A76 /* UIViewController+Extension.swift */,
 			);
-			path = Traditional;
+			path = "Traditional（常规实现）";
 			sourceTree = "<group>";
 		};
 		BB912A4F2074CFB000992570 = {
@@ -209,17 +209,17 @@
 		BB912AC42074D17F00992570 /* Demo */ = {
 			isa = PBXGroup;
 			children = (
-				BB8B0E4E20B695B400391A76 /* Traditional */,
-				BB912ACD2074D20600992570 /* Redux */,
-				BB912AD22074D22500992570 /* ReactorKit */,
-				BB912AD72074D33D00992570 /* Custom */,
+				BB8B0E4E20B695B400391A76 /* Traditional（常规实现） */,
+				BB912ACD2074D20600992570 /* Redux（Redux实现） */,
+				BB912AD22074D22500992570 /* ReactorKit（ReactorKit实现） */,
+				BB912AD72074D33D00992570 /* Custom（简化的方案） */,
 				BB912AC52074D1AD00992570 /* DemoListViewController.swift */,
 				BB912AC62074D1AD00992570 /* DemoListViewController.xib */,
 			);
 			path = Demo;
 			sourceTree = "<group>";
 		};
-		BB912ACD2074D20600992570 /* Redux */ = {
+		BB912ACD2074D20600992570 /* Redux（Redux实现） */ = {
 			isa = PBXGroup;
 			children = (
 				BB912AEB2075C5B500992570 /* Store */,
@@ -229,10 +229,10 @@
 				BB912AC92074D20100992570 /* ReduxMessageViewController.swift */,
 				BB912ACA2074D20100992570 /* ReduxMessageViewController.xib */,
 			);
-			path = Redux;
+			path = "Redux（\U0010Redux实现）";
 			sourceTree = "<group>";
 		};
-		BB912AD22074D22500992570 /* ReactorKit */ = {
+		BB912AD22074D22500992570 /* ReactorKit（ReactorKit实现） */ = {
 			isa = PBXGroup;
 			children = (
 				BB912ACE2074D22200992570 /* ReactorMessageViewController.swift */,
@@ -240,10 +240,10 @@
 				BB912AF72076676300992570 /* MessageReactor.swift */,
 				BB912AFB20775A2000992570 /* MessageService.swift */,
 			);
-			path = ReactorKit;
+			path = "ReactorKit（ReactorKit实现）";
 			sourceTree = "<group>";
 		};
-		BB912AD72074D33D00992570 /* Custom */ = {
+		BB912AD72074D33D00992570 /* Custom（简化的方案） */ = {
 			isa = PBXGroup;
 			children = (
 				BB912A9C2074D0CD00992570 /* Store */,
@@ -251,7 +251,7 @@
 				BB86F20420B7E82C00EB5D45 /* MessageViewController.xib */,
 				BB86F20320B7E82C00EB5D45 /* MessageViewModel.swift */,
 			);
-			path = Custom;
+			path = "Custom（简化的方案）";
 			sourceTree = "<group>";
 		};
 		BB912ADA2074D67C00992570 /* Model */ = {
